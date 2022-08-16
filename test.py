@@ -6,6 +6,7 @@ import tensorflow.keras.optimizers as optimizers
 import tensorflow.keras.callbacks as callbacks
 import tensorflow.keras.datasets as datasets
 import tensorflow.keras as keras
+from gradient_accumulation import BatchOptimizer
 
 keras.backend.set_floatx('float64')
 
