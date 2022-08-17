@@ -7,16 +7,17 @@ class BatchOptimizer(optimizers.Optimizer):
     _HAS_AGGREGATE_GRAD = True
     def __init__(self, optimizer, maximum_batch_size, desired_batch_size, data_size, model):
         super(BatchOptimizer, self).__init__('batch_optimizer')
-        self.model = model
+        self.model = model        
         if isinstance(self.model, models.Model):
-            self.model = [(variable.name, variable.shape, variable.dtype.name) for variable in self.model.variables]        
-        self.optimizer = optimizer        
+            self.model = [(variable.shape, variable.dtype.name) for variable in self.model.variables]        
+        self.optimizer = optimizer
+        self._weights = self.optimizer._weights
         self.data_size = data_size
-        if self.model[0][2] == 'float16':
+        if self.model[0][1] == 'float16':
             self.dtype = tf.float16
-        if self.model[0][2] == 'float32':
+        if self.model[0][1] == 'float32':
             self.dtype = tf.float32
-        if self.model[0][2] == 'float64':
+        if self.model[0][1] == 'float64':
             self.dtype = tf.float64
         self.desired_batch_size = desired_batch_size
         self.maximum_batch_size = maximum_batch_size
@@ -40,7 +41,7 @@ class BatchOptimizer(optimizers.Optimizer):
         if self.processed_samples_before_update is None:
             self.processed_samples_before_update = tf.Variable(0.0, trainable=False, dtype=self.dtype)    
         if self.accumulated_grads is None:
-            self.accumulated_grads = {name: tf.Variable(np.zeros(shape, dtype=self.dtype.as_numpy_dtype), shape=shape, trainable=False, dtype=self.dtype) for (name, shape, _) in self.model}
+            self.accumulated_grads = [tf.Variable(np.zeros(shape, dtype=self.dtype.as_numpy_dtype), shape=shape, trainable=False, dtype=self.dtype) for (shape, _) in self.model]
         if self.samples_per_batch is None:
             self.samples_per_batch = tf.Variable(0.0, trainable=False, dtype=self.dtype)
         if self.total_processed_samples is None:
@@ -75,7 +76,7 @@ class BatchOptimizer(optimizers.Optimizer):
         
         # Accumulate gradients
         for var_index, var in enumerate(variables):                 
-            self.accumulated_grads[var.name].assign_add(grads[var_index]*self.samples_per_batch)            
+            self.accumulated_grads[var_index].assign_add(grads[var_index]*self.samples_per_batch)            
 
         accumulated_grads = self.accumulated_grads
         processed_samples_before_update = self.processed_samples_before_update
@@ -84,13 +85,13 @@ class BatchOptimizer(optimizers.Optimizer):
     
         def return_optimizer_update():
             #Divide the accumulated gradients by the number of samples processed before update               
-            for var in variables:                
-                accumulated_grads[var.name].assign(accumulated_grads[var.name]/processed_samples_before_update)                    
+            for accumulated_grad in accumulated_grads:                
+                accumulated_grad.assign(accumulated_grad/processed_samples_before_update)                    
             # Apply gradients with the chosen optimizer
-            operation = optimizer.apply_gradients([(accumulated_grads[var.name], var) for var in variables])                                                      
+            operation = optimizer.apply_gradients([(accumulated_grads[var_index], var) for var_index, var in enumerate(variables)])                                                      
             #Reset accumulated gradients  
-            for var in variables:                
-                accumulated_grads[var.name].assign(np.zeros(var.shape, dtype=var.dtype.as_numpy_dtype))              
+            for accumulated_grad in accumulated_grads:                
+                accumulated_grad.assign(np.zeros(accumulated_grad.shape, dtype=accumulated_grad.dtype.as_numpy_dtype))              
             #Reset processed samples before update
             processed_samples_before_update.assign(0.0)
             return operation
@@ -112,6 +113,12 @@ class BatchOptimizer(optimizers.Optimizer):
         
         return final_operation
     
+    def get_weights(self):
+        return self.optimizer.get_weights()
+    
+    def set_weights(self, weights):        
+        self.optimizer.set_weights(weights)
+            
     def get_config(self):
         return {'optimizer':optimizers.serialize(self.optimizer), 
                        'maximum_batch_size':self.maximum_batch_size,
