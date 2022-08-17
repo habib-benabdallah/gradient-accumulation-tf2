@@ -13,7 +13,7 @@ Then, you need to define your model and to define your training set size before 
 # Define your model
 model = ...
 # Determine the size of your training set
-data_size = ...
+train_size = ...
 # Determine the maximum batch size that is supported by your system. We suppose that it is 16 here
 maximum_batch_size = 16
 # Choose the batch size that is optimal for your training but not supported by your system. We suppose that it is 256 here
@@ -21,7 +21,7 @@ desired_batch_size = 256
 # Choose a tensorflow optimizer 
 optimizer = ...
 # Wrap this optimizer inside a BatchOptimizer object
-batch_optimizer = BatchOptimizer(optimizer, maximum_batch_size, desired_batch_size, data_size, model)
+batch_optimizer = BatchOptimizer(optimizer, maximum_batch_size, desired_batch_size, train_size, model)
 # Compile your model with the batch optimizer
 model.compile(optimizer=batch_optimizer, ...)
 # Start the training using a batch size equal to maximum_batch_size
@@ -31,5 +31,7 @@ model.fit(x, y, batch_size=maximum_batch_size, ...)
 You can run `test.py` to check the difference in precision between using gradient accumulation and not using it on the MNIST dataset. For a better training approximation using gradient accumulation, use 'float64' weights in your model. To do so, add the following line before defining your model.
 
 ```python
-
+tensorflow.keras.backend.set_floatx('float64')
 ```
+
+It is also recommended to define the maximum batch size and the desired batch size as powers of 2. Doing so will improve the gradient accumulation precision since their use will be equivalent to using shift operations on the gradients.
