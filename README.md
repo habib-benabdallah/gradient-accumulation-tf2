@@ -8,9 +8,7 @@ from gradient_accumulation import BatchOptimizer
 ```
 
 Then, you need to define your model and to define your training set size before proceeding. When you are about to use an optimizer, Adam in this example, wrap it inside the BatchOptimizer object.
-```bash
-pip
-```
+
 ```python
 # Define your model
 model = ...
